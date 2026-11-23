@@ -1,0 +1,40 @@
+name: puente
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */2 * * *'
+
+concurrency:
+  group: puente
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cadena:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q phonenumbers
+      - name: Puente cada 2 minutos durante 5 h 30
+        env:
+          KLAVIYO_API_KEY: ${{ secrets.KLAVIYO_API_KEY }}
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+        run: |
+          fin=$(( $(date +%s) + 19800 ))
+          while [ $(date +%s) -lt $fin ]; do
+            python nk-wa-puente.py --apply --sms --horas 6 || true
+            sleep 120
+          done
+      - name: Relanzarse
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run puente.yml --repo ${{ github.repository }} --ref main
